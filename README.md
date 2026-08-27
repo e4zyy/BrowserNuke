@@ -1,0 +1,2 @@
+# BrowserNuke
+For educational purposes
